@@ -131,7 +131,10 @@ static char *json_encapulation_set_global_param(struct avs_global_param *param)
 	return json_dumps(obj_setparam, JSON_COMPACT);
 }
 
-
+AVS_CMD_RESULT avs_playsound(struct avs_playsound_chan_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;
+}
 
 AVS_CMD_RESULT avs_runctrl_chan(struct avs_runctrl_chan_param *param, struct avs_common_resp_info *resp)
 {
