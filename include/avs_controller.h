@@ -16,7 +16,7 @@
  * prohibited.
  *
  *
- * \brief AVS Component Adaptor.
+ * \brief Adaptor for AVS component.
  *
  * \author Kimi Zhou <lzhou@grandstream.cn>
  *
@@ -28,36 +28,27 @@
 #ifndef AVS_CONTROLLER_H
 #define AVS_CONTROLLER_H
 
-#define IPADDR_LEN		25
-#define IPPORTADDR_LEN  	25
-#define USERNAME_LEN 		20
-#define PASSWORD_LEN		20
-#define FILEPATH 		50
-#define CONFID_LEN 		20
-#define CHANID_LEN 		20
-#define PORTID_LEN		20
-#define TRACKID_LEN		20
-#define MESSAGE_REPONSE		100
-#define CANDIDATE_LEN		200
-#define FINGERPRINT_LEN		100
-#define ICEUFRAG_LEN		5
-#define ICEPWD_LEN		22
-
-/**
- * enum turn_protocal - TURN protocal.
- *
- * @PROTOCAL1:  
- * @PROTOCAL2:
- */
-enum turn_protocal {
-	PROTOCAL1,
-	PROTOCAL2
-};
+#define MAX_IPADDR_LEN		16	/* e.g: 192.168.111.111 */
+#define MAX_IPPORTADDR_LEN  	22	/* e.g: 192.168.111.111:65531 */
+#define MAX_TURN_USERNAME_LEN 	20
+#define MAX_TURN_PASSWORD_LEN	20
+#define MAX_SOUNDFILE_LEN 	20
+#define MAX_CONFID_LEN 		20
+#define MAX_CHANID_LEN 		20
+#define MAX_PORTID_LEN		20
+#define MAX_UNIQUE_ID		20
+#define MAX_MESSAGE_REPONSE	50
+#define MAX_FINGERPRINT_LEN	70	/* e.g: sha-512 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB */
+#define MAX_ICE_UFRAG		5	/* e.g: 8hhY */
+#define MAX_ICE_PASSWROD	23	/* e.g: asd88fgpdd777uzjYhagZg */
+#define MAX_ICE_QOS		3
+#define MAX_SRTP_KEY_LEN	100	/* ref: rfc4568 */
 
 /**
  * enum avs_audio_codec - Audio codecs.
  */
-enum avs_audio_codec {
+enum avs_audio_codec 
+{
 	AVS_AUDIO_CODEC_PCMU,
 	AVS_AUDIO_CODEC_PCMA,
 	AVS_AUDIO_CODEC_GSM,
@@ -74,7 +65,8 @@ enum avs_audio_codec {
 /**
  * enum avs_video_codec - Video codecs.
  */
-enum avs_video_codec {
+enum avs_video_codec 
+{
 	AVS_VIDEO_CODEC_H264,
 	AVS_VIDEO_CODEC_H265,
 	AVS_VIDEO_CODEC_VP8,
@@ -82,192 +74,375 @@ enum avs_video_codec {
 };
 
 /**
- * struct avs_common_resp_info - Common response infomations return from AVS. This is only used when AVS does not return any valuable informations, but just state returns.
- *
- * @code:  0:sucess, -1:error.
- * @message:  Descriptions of return value.
+ * enum avs_runctrl_chan_opt - Operation of run command for a channel.
+ * 
+ * @AVS_RUNCTRL_CHAN_OPT_START:  Let the channel begin to work.
+ * @AVS_RUNCTRL_CHAN_OPT_RESET:  Release channel resources.
+ * @AVS_RUNCTRL_CHAN_OPT_SUSPEND:  Work suspended to a channel.
+ * @AVS_RUNCTRL_CHAN_OPT_RESUME:  Restore to work to a channel.
  */
-struct avs_common_resp_info {
-	int code;
-	char message[MESSAGE_REPONSE];
+enum avs_runctrl_chan_opt 
+{
+	AVS_RUNCTRL_CHAN_OPT_START,
+	AVS_RUNCTRL_CHAN_OPT_RESET,
+	AVS_RUNCTRL_CHAN_OPT_SUSPEND,
+	AVS_RUNCTRL_CHAN_OPT_RESUME
 };
 
 /**
- * enum avs_cmd_result - The result of sending commanders to AVS.
+ * enum avs_runctrl_chan_mtype - Media type of run command.
  *
- * @LINK_DISCONNECT:  The HTTP connection between AVS and avs conntroller has been broken.
+ * @AVS_RUNCTRL_CHAN_TYPE_AUDIO:  Audio only when suspend or resume to a channel.
+ * @AVS_RUNCTRL_CHAN_TYPE_VIDEO:  Video only when suspend or resume to a channel.
+ * @AVS_RUNCTRL_CHAN_TYPE_ALL:  Audio and Video.
+ */
+enum avs_runctrl_chan_mtype
+{
+	AVS_RUNCTRL_CHAN_TYPE_AUDIO,
+	AVS_RUNCTRL_CHAN_TYPE_VIDEO,
+	AVS_RUNCTRL_CHAN_TYPE_ALL
+};
+
+/**
+ * enum avs_playsound_chan_type - Play mode.
+ *
+ * @AVS_PLAYSOUND_CHAN_SINGLE:  Playing sound on a single channel according to "chan_id".
+ * @AVS_PALYSOUND_CHAN_ALL_EXPT_CHAN:  Playing sound on all channel except itself("chan_id").
+ */
+enum avs_playsound_chan_type
+{
+	AVS_PLAYSOUND_CHAN_SINGLE,
+	AVS_PALYSOUND_CHAN_ALL_EXPT_CHAN
+};
+
+/**
+ * enum avs_cmd_result - The return result of "avs_" APIs.
+ *
+ * @LINK_DISCONNECT:  The HTTP connection between AVS and avs_conntroller has been broken.
  * @ERROR:  Maybe socket error???
  * @SUCCESS:  Sending commanders to AVS sucessfully.
  */
-typedef enum avs_cmd_result {
+typedef enum avs_cmd_result 
+{
 	LINK_DISCONNECT = -2,
 	ERROR,
 	SUCCESS
 } AVS_CMD_RESULT;
 
 /**
- * struct avs_param - The parameters set to AVS.
+ * struct avs_common_resp_info - General type of AVS return value. This is used when AVS does not return any valuable informations, but just SUCCESS or FAIL.
  *
- * @stun_ipaddr:  IP address of STUN server.
+ * @code:  0:sucess, -1:error.
+ * @message:  A simple description of the error return code.
+ * @comm_id:  Unique ID of a command to AVS.
+ */
+struct avs_common_resp_info 
+{
+	unsigned int code;
+	char message[MAX_MESSAGE_REPONSE];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * struct avs_global_param - The global parameters set to AVS.
+ *
  * @stun_port:  Port of STUN server.
- * @turn_ipaddr:  IP address of TURN server.
  * @turn_port:  Port of TURN server.
+ * @turn_ipaddr:  IP address of TURN server.
+ * @stun_ipaddr:  IP address of STUN server.
  * @turn_username:  Username for authentication of TURN server.
  * @turn_password:  Password for authentication of TURN server.
- * @turn_protocal:  Portocal that TURN uses.
- * @moh_filepath:  File path for MOH.
+ * @comm_id:  Unique ID of a command to AVS.
  */
-struct avs_param {
-	char stun_ipaddr[IPADDR_LEN];
-	unsigned stun_port;
-	char turn_ipaddr[IPADDR_LEN];
-	unsigned turn_port;
-	char turn_username[USERNAME_LEN];
-	char turn_password[PASSWORD_LEN];
-	enum turn_protocal turn_protocal;
-	char moh_filepath[FILEPATH];
+struct avs_global_param 
+{
+	unsigned int stun_port;
+	unsigned int turn_port;
+	char stun_ipaddr[MAX_IPADDR_LEN];
+	char turn_ipaddr[MAX_IPADDR_LEN];
+	char turn_username[MAX_TURN_USERNAME_LEN];
+	char turn_password[MAX_TURN_PASSWORD_LEN];
+	char comm_id[MAX_UNIQUE_ID];
 };
 
 /**
- * struct avs_addport_param - The parameters for AVS to allocate port resources.
+ * struct avs_alloc_port_normal_param - The parameters set to AVS for allocating port resources with normal mode(no ICE).
  *
+ * @enable_dtls:  Whether to turn on DTLS.
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
- * @enable_ice:  Whether to turn on ICE.
- * @enable_dtls:  Whether to turn DTLS.
+ * @comm_id:  Unique ID of a command to AVS.
  */
-struct avs_addport_param {
-	char conf_id[CONFID_LEN];
-	char chan_id[CHANID_LEN];
-	int enable_ice;
-	int enable_dtls;
+struct avs_alloc_port_normal_param 
+{
+	unsigned int enable_dtls:1;
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char comm_id[MAX_UNIQUE_ID];	
 };
 
 /**
- * struct avs_addport_resp_info - The response from AVS to avs_addport() commander.
+ * struct avs_alloc_port_ice_param - The parameters set to AVS for allocating port resources with ICE mode.
  *
- * @resp:  Response informations from AVS.
+ * @enable_dtls:  Whether to turn on DTLS.
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @comm_id:  Unique ID of a command to AVS.
+ */
+struct avs_alloc_port_ice_param 
+{
+	unsigned int enable_dtls:1;
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * struct avs_alloc_port_normal_resp_info - The response values from AVS according to avs_addport_normal() command.
+ *
+ * @rtp_port:  RTP port for audio or video stream.
+ * @rtcp_port:  RTP port for audio or video stream.
+ * @fingerprint_port:  fingerprint port.
  * @port_id:  Unique ID for a port resource.
- * @fingerprint_ice:  
+ * @comm_id:  Unique ID of a commander to AVS.
+ * @resp:  Response informations from AVS.
+ */
+struct avs_alloc_port_normal_resp_info 
+{
+	unsigned int rtp_port;
+	unsigned int rtcp_port;
+	char fingerprint[MAX_FINGERPRINT_LEN];
+	char pord_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+	struct avs_response_common_info *resp;
+};
+
+/**
+ * struct avs_alloc_port_ice_resp_info - The response values from AVS according to avs_addport_ice() command.
+ * 
  * @ice_ufrag:  Ice credentials
  * @ice_pwd:  Ice credentials
- * @rtp_port:  RTP port for video stream.
- * @rtcp_port:  RTP port for video stream.
- * @fingerprint_port:  
+ * @fingerprint:  fingerprint.
+ * @port_id:  Unique ID for a port resource.
+ * @comm_id:  Unique ID of a commander to AVS.
+ * @resp:  Response informations from AVS. 
  */
-struct avs_addport_resp_info {
+struct avs_alloc_port_ice_resp_info 
+{
+	char ice_ufrag[MAX_ICE_UFRAG];
+	char ice_pwd[MAX_ICE_PASSWROD];
+	char fingerprint[MAX_FINGERPRINT_LEN];
+	char pord_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
 	struct avs_response_common_info *resp;
-	char pord_id[PORTID_LEN];
-	char fingerprint_ice[FINGERPRINT_LEN];
-	char ice_ufrag[ICEUFRAG_LEN];
-	char ice_pwd[ICEPWD_LEN];
-	int rtp_port;
-	int rtcp_port;
-	char fingerprint_port[FINGERPRINT_LEN];
 };
 
 /**
- * struct avs_delport - The parameters for AVS to deallocate port resources.
+ * struct avs_dealloc_port_param - The parameters for AVS to deallocate port resources.
  *
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
  * @port_id:  Unique ID for a port resource.
+ * @comm_id:  Unique ID of a commander to AVS.
  */
-struct avs_delport_param {
-	char conf_id[CONFID_LEN];
-	char chan_id[CHANID_LEN];
-	char port_id[PORTID_LEN];
+struct avs_dealloc_port_param 
+{
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char port_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
 };
 
 /**
- * struct avs_addtrack - The parameters for AVS to set track informations.
+ * struct avs_set_peerport_normal_param - The parameters for AVS to set peer port information with normal mode(no ICE).
  *
- * @conf_id:  Conference id.
- * @chan_id:  Channel id.
- * @track_id:  Track id. This must be generated by conference manager module.
- * @a_codec:  Audio encoder\decoder type.
- * @audio_payloadtype:  Audio payloadtype.
- * @audio_transmode:  1: sendrecv, 2: sendonly, 3: recvonly.
- * @v_codec:  Video encoder\decoder type.
- * @video_payloadtype:  Video payloadtype.
- * @video_transmode:  1: sendrecv, 2: sendonly, 3: recvonly.
- */
-struct avs_addtrack_param {
-	char conf_id[CONFID_LEN];
-	char chan_id[CHANID_LEN];
-	char track_id[TRACKID_LEN];
-	enum avs_audio_codec a_codec;
-	int audio_payloadtype;
-	int audio_transmode;
-	enum avs_video_codec v_codec;
-	int video_payloadtype;
-	int video_transmode;
-};
-
-/**
- * struct avs_setport_param - The parameters for AVS to set transport informations.
- *
- * @conf_id:  Conference id.
- * @chan_id:  Channel id.
- * @port_id:  Unique ID for a port resource.
+ * @rtcpmux:  Whether RTP and RTCP use same port. 0: no-mux, 1: mux.
+ * @symrtp:  Whether to use symrtp. 0: switch off, 1: switch on.
+ * @srtpmode:  The encryption method. 2: AES256_CM_SHA1_80, 3: AES256_CM_SHA1_32, 4: AES128_CM_SHA1_80, 5: AES128_CM_SHA1_32
+ * @qos:  0 - 255.
+ * @srtpsendkey:  Key needed for encryption.
+ * @srtprecvkey:  Key needed for decryption.
  * @targetaddr:  Where AVS send media stream to.
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @port_id:  Unique ID for a port resource.
+ * @comm_id:  Unique ID of a command to AVS.
  *
  */
-struct avs_setport_param {
-	char conf_id[CONFID_LEN];
-	char chan_id[CHANID_LEN];
-	char port_id[PORTID_LEN];
-	char targetaddr[IPPORTADDR_LEN];
+struct avs_set_peerport_normal_param 
+{
+	unsigned int rtcpmux:1;
+	unsigned int symrtp:1;
+	unsigned int srtpmode:2;
+	unsigned int qos;
+	char srtpsendkey[MAX_SRTP_KEY_LEN];
+	char srtprecvkey[MAX_SRTP_KEY_LEN];
+	char targetaddr[MAX_IPPORTADDR_LEN];
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char port_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
 };
 
 /**
- * avs_init - Establish a HTTP connection to AVS.
+ * struct avs_set_peerport_ice_param - The parameters for AVS to set peer port informations with ICE mode.
+ * icerole:  0: controlling, 1: controlled.
+ * sslrole:  0: ssl client, 1: ssl server.
+ * fingerprint;  fingerprint.
+ * @ice_ufrag:  Ice credentials
+ * @ice_pwd:  Ice credentials
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @port_id:  Unique ID for a port resource.
+ * @comm_id:  Unique ID of a command to AVS.
+ *
+ */
+struct avs_set_peerport_ice_param 
+{
+	unsigned int icerole:1;
+	unsigned int sslrole:1;
+	char fingerprint[MAX_FINGERPRINT_LEN];
+	char ice_ufrag[MAX_ICE_UFRAG];
+	char ice_pwd[MAX_ICE_PASSWROD];
+	char candidate[MAX_IPPORTADDR_LEN];
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char port_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * struct avs_codec_param - The parameters to set codec to AVS.
+ *
+ * @a_codec:  Audio encoder\decoder type.
+ * @v_codec:  Video encoder\decoder type.
+ * @audio_payloadtype:  Audio payloadtype.
+ * @video_payloadtype:  Video payloadtype.
+ * @audio_transmode:  1: sendrecv, 2: sendonly, 3: recvonly.
+ * @video_transmode:  1: sendrecv, 2: sendonly, 3: recvonly.
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @port_id:  Unique ID for a port resource.
+ * @comm_id:  Unique ID of a command to AVS.
+ */
+struct avs_codec_param 
+{
+	enum avs_audio_codec a_codec;
+	enum avs_video_codec v_codec;
+	unsigned int audio_payloadtype;
+	unsigned int video_payloadtype;
+	unsigned int audio_transmode;
+	unsigned int video_transmode;
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char port_id[MAX_PORTID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * struct avs_runctrl_chan_param - Send run command to AVS.
+ *
+ * @opt:  Operation of run command.
+ * @mtype:  Media type of run command.
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @comm_id:  Unique ID of a command to AVS.
+ */
+struct avs_runctrl_chan_param 
+{
+	enum avs_runctrl_chan_opt opt;
+	enum avs_runctrl_chan_mtype mtype;
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * struct avs_playsound_chan_param - The parameters of playing sound on channels.
+ *
+ * @ptype:  Play mode.
+ * @soundfile:  Name of sound file.
+ * @conf_id:  Conference id.
+ * @chan_id:  Channel id.
+ * @comm_id:  Unique ID of a command to AVS.
+ */
+struct avs_playsound_chan_param
+{
+	enum avs_playsound_chan_type ptype;
+	char soundfile[MAX_SOUNDFILE_LEN];
+	char conf_id[MAX_CONFID_LEN];
+	char chan_id[MAX_CHANID_LEN];
+	char comm_id[MAX_UNIQUE_ID];
+};
+
+/**
+ * avs_create_conn - Establish a HTTP connection to AVS. "Say hello..."
  *
  * Return: AVS_CMD_RESULT.
  */
-AVS_CMD_RESULT avs_init(void);
+AVS_CMD_RESULT avs_create_conn(void);
 
 /**
  * avs_shutdown - Close the connection with AVS, and release related resources.
  *
  * Return:.
  */
-//void avs_shutdown(void);
+void avs_shutdown(void);
 
 /**
- * avs_setparam - Set parameters to AVS.
+ * avs_set_global_param - Set global parameters to AVS.
  * @param: parameters to be set. 
  * @resp: response informations from AVS 
  *
  * Return: AVS_CMD_RESULT.
  */
-AVS_CMD_RESULT avs_setparam(struct avs_param *param, struct avs_common_resp_info *resp);
+AVS_CMD_RESULT avs_set_global_param(struct avs_global_param *param, struct avs_common_resp_info *resp);
 
 /**
- * avs_addport/avs_delport - Allocating port resources to AVS.
- * @param: parameters for allocating port resources. 
- * @resp: response informations for avs_addport() from AVS.
+ * avs_alloc_port_normal/avs_alloc_port_ice/avs_dealloc_port - Allocating/Deallocating port resources to AVS with normal mode or ICE mode.
+ * @param: parameters for allocating port resources with normal mode or ICE mode.
+ * @resp: response informations for avs_addport_normal()/avs_addport_ice() from AVS.
  *
  * Return: AVS_CMD_RESULT.
  */
-//AVS_CMD_RESULT avs_addport(struct avs_addport_param *param, struct avs_addport_resp_info *resp);
-//AVS_CMD_RESULT avs_delport(struct avs_delport_param *param, struct avs_common_resp_info *resp);
+AVS_CMD_RESULT avs_alloc_port_normal(struct avs_alloc_port_normal_param *param, struct avs_alloc_port_normal_resp_info *resp);
+AVS_CMD_RESULT avs_alloc_port_ice(struct avs_alloc_port_ice_param *param, struct avs_alloc_port_ice_resp_info *resp);
+AVS_CMD_RESULT avs_dealloc_port(struct avs_dealloc_port_param *param, struct avs_common_resp_info *resp);
 
 /**
- * avs_track - Allocating track resources to AVS.
- * @param: parameters for adding track to AVS.
- * @resp: response informations for avs_track() from AVS.
+ * avs_set_peerport_param_normal/avs_set_peerport_param_ice - Set peer parameters to AVS with normal mode or ICE mode.
+ * @param:  The parameters of peer which set to AVS.
+ * @resp:  The response informations returned from AVS.
  *
  * Return: AVS_CMD_RESULT.
  */
-//AVS_CMD_RESULT avs_track(struct avs_addtrack_param *param, struct avs_common_resp_info *resp);
+AVS_CMD_RESULT avs_set_peerport_param_normal(struct avs_set_peerport_normal_param *param, struct avs_common_resp_info *resp);
+AVS_CMD_RESULT avs_set_peerport_param_ice(struct avs_set_peerport_ice_param *param, struct avs_common_resp_info *resp);
 
 /**
- * avs_setportparam - Set transport parameters to AVS.
- * @param: parameters for setting transport parameters to AVS.
- * @resp: response informations for avs_setportparam() from AVS.
+ * avs_set_codec_param - Set the parameters of codec.
+ * @param:  The parameters to set codec to AVS.
+ * @resp:  The response informations returned from AVS.
  *
  * Return: AVS_CMD_RESULT.
  */
-//AVS_CMD_RESULT avs_setportparam(struct avs_setport_param *param, struct avs_common_resp_info *resp);
+AVS_CMD_RESULT avs_set_codec_param(struct avs_codec_param *param, struct avs_common_resp_info *resp);
+
+/**
+ * avs_runctrl_chan - Run control to a channel.
+ * @param:  Contents of Run control command.
+ * @resp:  The response informations returned from AVS.
+ *
+ * Return: AVS_CMD_RESULT.
+ */
+AVS_CMD_RESULT avs_runctrl_chan(struct avs_runctrl_chan_param *param, struct avs_common_resp_info *resp);
+
+/**
+ * avs_playsound - Play sound on channels.
+ * @param:  The parameters of playing sound on channels.
+ * @resp:  The response informations returned from AVS.
+ *
+ * Return: AVS_CMD_RESULT.
+ */
+AVS_CMD_RESULT avs_playsound(struct avs_playsound_chan_param *param, struct avs_common_resp_info *resp);
 #endif /* AVS_CONTROLLER_H */

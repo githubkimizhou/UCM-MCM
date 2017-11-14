@@ -29,10 +29,11 @@
 #include <stdio.h>
 #include <curl/curl.h>
 #include <jansson.h>
+#include <pthread.h>
 #include "include/avs_controller.h"
 
-#define AVS_URL		"http://127.0.0.1:8080/com/grandstream/httpjson/avs"
-//#define AVS_URL		"http://192.168.124.172:80"
+//#define AVS_URL		"http://127.0.0.1:8080/com/grandstream/httpjson/avs"
+#define AVS_URL		"http://192.168.124.172:80"
 
 static CURL *curl_handle = NULL;
 
@@ -45,7 +46,7 @@ static FUNC_RETURN http_init(void);
 static FUNC_RETURN http_shutdown(void);
 static FUNC_RETURN http_send(char *payload);
 static char *json_encapulation_hello(void);
-static char *json_encapulation_setparam(struct avs_param *param);
+static char *json_encapulation_set_global_param(struct avs_global_param *param);
 
 static FUNC_RETURN http_init(void)
 {
@@ -69,7 +70,6 @@ static FUNC_RETURN http_shutdown(void)
 	
 	return ret;
 }
-
 
 static FUNC_RETURN http_send(char *payload)
 {
@@ -102,6 +102,7 @@ static FUNC_RETURN http_send(char *payload)
 	return ret;
 }
 
+/* Encapulating "hello" json object and return it's string shape. */
 static char *json_encapulation_hello(void)
 {
 	json_t *obj = json_object();
@@ -111,7 +112,8 @@ static char *json_encapulation_hello(void)
 	return json_dumps(obj, JSON_COMPACT);
 }
 
-static char *json_encapulation_setparam(struct avs_param *param)
+/* Encapulating global parameters json object and return it's string shape. */
+static char *json_encapulation_set_global_param(struct avs_global_param *param)
 {
 	json_t *obj_setparam = json_object();
 	json_t *obj_stun = json_object();
@@ -123,25 +125,61 @@ static char *json_encapulation_setparam(struct avs_param *param)
 	json_object_set_new(obj_turn, "port", json_integer(param->turn_port));
 	json_object_set_new(obj_turn, "username", json_string(param->turn_username));
 	json_object_set_new(obj_turn, "password", json_string(param->turn_username));
-	json_object_set_new(obj_turn, "protocal", json_integer(param->turn_protocal));
 	json_object_set_new(obj_setparam, "stunserver", obj_stun);
 	json_object_set_new(obj_setparam, "turnserver", obj_turn);
 	
 	return json_dumps(obj_setparam, JSON_COMPACT);
 }
 
-AVS_CMD_RESULT avs_setparam(struct avs_param *param, struct avs_common_resp_info *resp)
+
+
+AVS_CMD_RESULT avs_runctrl_chan(struct avs_runctrl_chan_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;
+}
+
+AVS_CMD_RESULT avs_set_codec_param(struct avs_codec_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;
+}
+
+AVS_CMD_RESULT avs_set_peerport_param_normal(struct avs_set_peerport_normal_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;	
+}
+
+AVS_CMD_RESULT avs_set_peerport_param_ice(struct avs_set_peerport_ice_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;	
+}
+
+AVS_CMD_RESULT avs_alloc_port_normal(struct avs_alloc_port_normal_param *param, struct avs_alloc_port_normal_resp_info *resp)
+{
+	return SUCCESS;
+}
+
+AVS_CMD_RESULT avs_alloc_port_ice(struct avs_alloc_port_ice_param *param, struct avs_alloc_port_ice_resp_info *resp)
+{
+	return SUCCESS;
+}
+
+AVS_CMD_RESULT avs_dealloc_port(struct avs_dealloc_port_param *param, struct avs_common_resp_info *resp)
+{
+	return SUCCESS;	
+}
+
+AVS_CMD_RESULT avs_set_global_param(struct avs_global_param *param, struct avs_common_resp_info *resp)
 {
 	char *json_s = NULL;
 	AVS_CMD_RESULT result = ERROR;
 
-	json_s = json_encapulation_setparam(param);
+	json_s = json_encapulation_set_global_param(param);
 	if (!json_s)
 		return result;
 
 	if (curl_handle)
 	{
-		if (R_SUCCESS == http_send(json_s))
+		if (http_send(json_s) == R_SUCCESS)
 			result = SUCCESS;
 	}
 	
@@ -150,19 +188,19 @@ AVS_CMD_RESULT avs_setparam(struct avs_param *param, struct avs_common_resp_info
 	return result;
 }
 
-AVS_CMD_RESULT avs_init(void)
+AVS_CMD_RESULT avs_create_conn(void)
 {
 	char *json_s;
 	AVS_CMD_RESULT result = ERROR;
 
-	if (R_FAIL == http_init())
+	if (http_init() == R_FAIL)
 		return result;
 
 	json_s = json_encapulation_hello();
 	if (!json_s)
 		return result;
 	
-	if (R_SUCCESS == http_send(json_s))
+	if (http_send(json_s) == R_SUCCESS)
 		result = SUCCESS;
 
 	return result;
@@ -173,27 +211,27 @@ void avs_shutdown(void)
 	http_shutdown();
 }
 
+#if 1
+/* main - Just for testing APIs..*/
 int main(void)
 {
-	struct avs_param param;
+	struct avs_global_param param;
 	struct avs_common_resp_info resp;
 
-	if (avs_init() != SUCCESS)
+	if (avs_create_conn() != SUCCESS) 
 	{
-		fprintf(stderr, "Connect to AVS failed!\n");
-		return 0;
+		printf("connect AVS failed\n");
+		return -1;
 	}
 
-	strcpy(param.stun_ipaddr, "192.168.1.1");
+	strcpy(param.stun_ipaddr, "192.168.3.3");
 	param.stun_port = 5333;
-	strcpy(param.turn_ipaddr, "192.168.2.2");
+	strcpy(param.turn_ipaddr, "192.168.5.5");
 	param.turn_port = 6333;
 	strcpy(param.turn_username, "zhoulei");
 	strcpy(param.turn_password, "123456789");
-	param.turn_protocal = PROTOCAL1;
-	strcpy(param.moh_filepath, "/home/mohfile/en");
 
-	if (avs_setparam(&param, &resp) == SUCCESS)
+	if (avs_set_global_param(&param, &resp) == SUCCESS)
 		printf("Good Job!\n");
 	else
 		printf("Fuck!\n");
@@ -202,8 +240,4 @@ int main(void)
 		
 	return 0;
 }
-
-
-
-
-
+#endif
