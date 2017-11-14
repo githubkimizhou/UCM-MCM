@@ -32,7 +32,7 @@
 #define MAX_IPPORTADDR_LEN  	22	/* e.g: 192.168.111.111:65531 */
 #define MAX_TURN_USERNAME_LEN 	20
 #define MAX_TURN_PASSWORD_LEN	20
-#define MAX_SOUNDFILE_LEN 	20
+#define MAX_SOUNDFILE_LEN 	1024	/* absolute path */
 #define MAX_CONFID_LEN 		20
 #define MAX_CHANID_LEN 		20
 #define MAX_PORTID_LEN		20
@@ -107,12 +107,12 @@ enum avs_runctrl_chan_mtype
  * enum avs_playsound_chan_type - Play mode.
  *
  * @AVS_PLAYSOUND_CHAN_SINGLE:  Playing sound on a single channel according to "chan_id".
- * @AVS_PALYSOUND_CHAN_ALL_EXPT_CHAN:  Playing sound on all channel except itself("chan_id").
+ * @AVS_PLAYSOUND_CHAN_ALL_EXPT_CHAN:  Playing sound on all channel except itself("chan_id").
  */
 enum avs_playsound_chan_type
 {
 	AVS_PLAYSOUND_CHAN_SINGLE,
-	AVS_PALYSOUND_CHAN_ALL_EXPT_CHAN
+	AVS_PLAYSOUND_CHAN_ALL_EXPT_CHAN
 };
 
 /**
@@ -361,6 +361,7 @@ struct avs_runctrl_chan_param
  * struct avs_playsound_chan_param - The parameters of playing sound on channels.
  *
  * @ptype:  Play mode.
+ * @action:  1: start playing, 0: stop playing.
  * @soundfile:  Name of sound file.
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
@@ -369,6 +370,7 @@ struct avs_runctrl_chan_param
 struct avs_playsound_chan_param
 {
 	enum avs_playsound_chan_type ptype;
+	unsigned int action:1;
 	char soundfile[MAX_SOUNDFILE_LEN];
 	char conf_id[MAX_CONFID_LEN];
 	char chan_id[MAX_CHANID_LEN];
