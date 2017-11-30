@@ -226,7 +226,7 @@ struct avs_alloc_port_normal_resp_info
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char port_id[MAX_PORTID_LEN];
 	char comm_id[MAX_UNIQUE_ID];
-	struct avs_response_common_sub_info *resp;
+	struct avs_response_common_sub_info resp;
 };
 
 /**
@@ -246,7 +246,7 @@ struct avs_alloc_port_ice_resp_info
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char port_id[MAX_PORTID_LEN];
 	char comm_id[MAX_UNIQUE_ID];
-	struct avs_response_common_sub_info *resp;
+	struct avs_response_common_sub_info resp;
 };
 
 /**

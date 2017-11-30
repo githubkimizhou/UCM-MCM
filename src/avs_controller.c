@@ -150,8 +150,8 @@ static void *fill_alloc_port_normal_resp(struct avs_alloc_port_normal_resp_info 
 	strncpy(resp->fingerprint, g_data_storage_resp_alloc_port_normal.fingerprint, sizeof(resp->fingerprint) - 1);
 	strncpy(resp->comm_id, g_data_storage_resp_alloc_port_normal.comm_id, sizeof(resp->comm_id) - 1);
 	
-	resp->resp->code = g_data_storage_resp_alloc_port_normal.common_resp.code;
-	strncpy(resp->resp->message, g_data_storage_resp_alloc_port_normal.common_resp.message, sizeof(resp->resp->message) - 1);
+	resp->resp.code = g_data_storage_resp_alloc_port_normal.common_resp.code;
+	strncpy(resp->resp.message, g_data_storage_resp_alloc_port_normal.common_resp.message, sizeof(resp->resp.message) - 1);
 	
 	return NULL;
 }
@@ -189,7 +189,7 @@ static FUNC_RETURN dec_json_common_resp(json_t *root, struct resp_common_info *r
 			}
 			else
 			{
-				strcpy(resp->message, "Nothing to Say! Fuck U!#################");	
+				strcpy(resp->message, "Nothing to Say! Fuck U!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 			}
 		}
 	}
@@ -824,8 +824,6 @@ int main(void)
 #if 1	/* alloc port. */
 	struct avs_alloc_port_normal_param param;
 	struct avs_alloc_port_normal_resp_info resp;
-	char buf[100];
-	resp.resp = (struct avs_response_common_sub_info *)buf;
 	
 	if (avs_create_conn() != SUCCESS) 
 	{
@@ -840,7 +838,7 @@ int main(void)
 	
 	if (avs_alloc_port_normal(&param, &resp) == SUCCESS)
 	{
-		printf("Good Job! resp->code is %d, message is %s, rtp_port is %d, rtcp_port is %d\n", resp.resp->code, resp.resp->message, resp.rtp_port, resp.rtcp_port);
+		printf("Good Job! resp->code is %d, message is %s, port_id is %s, rtp_port is %d, rtcp_port is %d\n", resp.resp.code, resp.resp.message, resp.port_id, resp.rtp_port, resp.rtcp_port);
 	}
 	else
 	{
