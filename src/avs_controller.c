@@ -93,26 +93,25 @@ struct resp_common_info
 /* Data structure for storing "alloc_port_normal" response received from AVS. */
 struct resp_alloc_port_normal_info
 {
-	unsigned int code;
-	char message[MAX_MESSAGE_REPONSE];
+	unsigned int rtp_port;
+	unsigned int rtcp_port;
+	char port_id[MAX_PORTID_LEN];
+	char fingerprint[MAX_FINGERPRINT_LEN];
 	char comm_id[MAX_UNIQUE_ID];
-};
-
-/* Data structure for storing "alloc_port_ice" response received from AVS. */
-struct resp_alloc_port_ice_info
-{
-	unsigned int code;
-	char message[MAX_MESSAGE_REPONSE];
-	char comm_id[MAX_UNIQUE_ID];
+	struct resp_common_info common_resp;
 };
 
 static CMD_TYPE_STATE cmd_current_state = ST_AVS_IDLE;	/* Context of the current command. */
 
 static MSG_PARSE_RESULT msg_parse_result = MSG_PARSE_RESULT_SUCCESS;	/* Parsing result of message received from AVS. */
 
-static struct resp_common_info resp_common_data;	/* Data area for storing common response received from AVS. */
-//static struct resp_alloc_port_normal_info resp_alloc_port_normal_data;
-//static struct resp_alloc_port_ice_info resp_alloc_port_ice_data;
+static struct resp_common_info g_data_storage_resp_common;	/* Global data area for storing common response received from AVS. */
+static struct resp_alloc_port_normal_info g_data_storage_resp_alloc_port_normal;	/* Global data area for storing "alloc_port_normal" response received from AVS. */
+
+static FUNC_RETURN general_action(void *param, void *resp, CMD_TYPE_STATE cmd_type);
+static void *general_json_dec(char *msg);
+static const char *general_json_enc(void *param, CMD_TYPE_STATE cmd_type);
+static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type);
 
 static int wait_on_socket();
 static void *wakeup_intruder();
@@ -125,38 +124,42 @@ static FUNC_RETURN cmd_send(const char *cmd);
 static FUNC_RETURN msg_recv_process(char *msg);
 
 static const char *enc_json_set_global_param(struct avs_global_param *param);
-static FUNC_RETURN dec_json_common_resp(json_t *root);
+static const char *enc_json_alloc_port_normal(struct avs_alloc_port_normal_param *param);
+static FUNC_RETURN dec_json_common_resp(json_t *root, struct resp_common_info *resp);
+static FUNC_RETURN dec_json_alloc_port_normal_resp(json_t *root, struct resp_alloc_port_normal_info *resp);
 
 static void *fill_common_resp(struct avs_common_resp_info *resp);
+static void *fill_alloc_port_normal_resp(struct avs_alloc_port_normal_resp_info *resp);
 
+/* Fill the common type response data to the command requester. */
 static void *fill_common_resp(struct avs_common_resp_info *resp)
 {
-	resp->code = resp_common_data.code;
-	strncpy(resp->message, resp_common_data.message, sizeof(resp->message));
+	resp->code = g_data_storage_resp_common.code;
+	strncpy(resp->message, g_data_storage_resp_common.message, sizeof(resp->message));
+	strncpy(resp->comm_id, g_data_storage_resp_common.comm_id, sizeof(resp->comm_id) - 1);
 	
 	return NULL;
 }
 
-static FUNC_RETURN dec_json_common_resp(json_t *root)
+/* Fill the "alloc_port_normal" type response data to the command requester. */
+static void *fill_alloc_port_normal_resp(struct avs_alloc_port_normal_resp_info *resp)
 {
-	json_t *id, *error, *code, *message;
+	resp->rtp_port = g_data_storage_resp_alloc_port_normal.rtp_port;
+	resp->rtcp_port = g_data_storage_resp_alloc_port_normal.rtcp_port;
+	strncpy(resp->port_id, g_data_storage_resp_alloc_port_normal.port_id, sizeof(resp->port_id) - 1);
+	strncpy(resp->fingerprint, g_data_storage_resp_alloc_port_normal.fingerprint, sizeof(resp->fingerprint) - 1);
+	strncpy(resp->comm_id, g_data_storage_resp_alloc_port_normal.comm_id, sizeof(resp->comm_id) - 1);
 	
-	if (!json_is_object(root))
-	{
-		printf("error: root is not an object\n");
-		return R_FAIL;
-	}
+	resp->resp->code = g_data_storage_resp_alloc_port_normal.common_resp.code;
+	strncpy(resp->resp->message, g_data_storage_resp_alloc_port_normal.common_resp.message, sizeof(resp->resp->message) - 1);
 	
-	if ((id = json_object_get(root, "id")))
-	{
-		if (!json_is_string(id))
-		{
-			printf("error: id is not a string\n");
-			return R_FAIL;
-		}
-		printf("resp id: %s\n", json_string_value(id));
-		strncpy(resp_common_data.comm_id, json_string_value(id), sizeof(resp_common_data.comm_id) - 1);
-	}
+	return NULL;
+}
+
+/* Parse a common type of JSON message. */
+static FUNC_RETURN dec_json_common_resp(json_t *root, struct resp_common_info *resp)
+{
+	json_t *error, *code, *message;
 	
 	if ((error = json_object_get(root, "error")))
 	{
@@ -174,7 +177,7 @@ static FUNC_RETURN dec_json_common_resp(json_t *root)
 				return R_FAIL;
 			}
 			printf("resp code: %d\n", (int)json_integer_value(code));
-			resp_common_data.code = (unsigned int)json_integer_value(code);
+			resp->code = (unsigned int)json_integer_value(code);
 		}
 		
 		if ((message = json_object_get(error, "message")))
@@ -182,19 +185,86 @@ static FUNC_RETURN dec_json_common_resp(json_t *root)
 			printf("resp message: %s\n", json_string_value(message));
 			if (json_is_string(message))
 			{
-				strncpy(resp_common_data.message, json_string_value(message), sizeof(resp_common_data.message) - 1);
+				strncpy(resp->message, json_string_value(message), sizeof(resp->message) - 1);
 			}
 			else
 			{
-				strcpy(resp_common_data.message, "Nothing to Say! Fuck U!");	
+				strcpy(resp->message, "Nothing to Say! Fuck U!#################");	
 			}
 		}
+	}
+	else
+	{
+		printf("decode error oject failed\n");
+		return R_FAIL;
 	}
 
 	return R_SUCCESS;
 }
 
-/* Encapulating global parameters json object and return it's string shape. */
+/* Parse a "alloc_port_normal" type of JSON message. */
+static FUNC_RETURN dec_json_alloc_port_normal_resp(json_t *root, struct resp_alloc_port_normal_info *resp)
+{
+	json_t *infoport, *port_id, *rtp_port, *rtcp_port;
+	
+	if (dec_json_common_resp(root, &(resp->common_resp)) != R_SUCCESS)
+	{
+		printf("decode JSON from AVS failed (\"common\" resp in \"alloc_port_normal\").\n");
+		msg_parse_result = MSG_PARSE_RESULT_FAIL;
+		return R_FAIL;
+	}
+	
+	if ((port_id = json_object_get(root, "port_id")))
+	{
+		if (!json_is_string(port_id))
+		{
+			printf("error: port_id is not an string\n");
+			return R_FAIL;
+		}
+		printf("port_id: %s\n", json_string_value(port_id));
+		strncpy(resp->port_id, json_string_value(port_id), sizeof(resp->port_id) - 1);
+	}
+	
+	if ((infoport = json_object_get(root, "InfoPort")))
+	{
+		if (!json_is_object(infoport))
+		{
+			printf("error: infoport is not an object\n");
+			return R_FAIL;
+		}
+		
+		if ((rtp_port = json_object_get(infoport, "rtp_port")))
+		{
+			if (!json_is_string(rtp_port))
+			{
+				printf("error: rtp_port is not an string\n");
+				return R_FAIL;
+			}
+			printf("rtp_port: %s\n", json_string_value(rtp_port));
+			resp->rtp_port = (unsigned int)atoi(json_string_value(rtp_port));
+		}
+		
+		if ((rtcp_port = json_object_get(infoport, "rtcp_port")))
+		{
+			if (!json_is_string(rtcp_port))
+			{
+				printf("error: rtcp_port is not an string\n");
+				return R_FAIL;
+			}
+			printf("rtcp_port: %s\n", json_string_value(rtcp_port));
+			resp->rtcp_port = (unsigned int)atoi(json_string_value(rtcp_port));
+		}
+	}
+	else
+	{
+		printf("decode InfoPort object failed.\n");
+		return R_FAIL;		
+	}
+	
+	return R_SUCCESS;
+}
+
+/* Encapulating "setParam" json object and return it's string shape. */
 static const char *enc_json_set_global_param(struct avs_global_param *param)
 {
 	json_t *obj_top = json_object();
@@ -222,7 +292,27 @@ static const char *enc_json_set_global_param(struct avs_global_param *param)
 	json_object_set_new(obj_setparam, "turnserver", array_turn);
 	
 	json_object_set_new(obj_top, "setParam", obj_setparam);
-	json_object_set_new(obj_top, "id", json_string("112233445566778899"));
+	json_object_set_new(obj_top, "id", json_string(param->comm_id));
+	
+	return json_dumps(obj_top, JSON_COMPACT);
+}
+
+/* Encapulating "addPort" json object and return it's string shape. */
+static const char *enc_json_alloc_port_normal(struct avs_alloc_port_normal_param *param)
+{
+	json_t *obj_top = json_object();
+	json_t *obj_addport = json_object();
+	char dtls[2] = {0};
+	
+	sprintf(dtls, "%d", param->enable_dtls);
+	
+	json_object_set_new(obj_addport, "conf_id", json_string(param->conf_id));
+	json_object_set_new(obj_addport, "chan_id", json_string(param->chan_id));
+	json_object_set_new(obj_addport, "ICE", json_string("0"));
+	json_object_set_new(obj_addport, "DTLS", json_string(dtls));
+	
+	json_object_set_new(obj_top, "addPort", obj_addport);
+	json_object_set_new(obj_top, "id", json_string(param->comm_id));
 	
 	return json_dumps(obj_top, JSON_COMPACT);
 }
@@ -230,10 +320,17 @@ static const char *enc_json_set_global_param(struct avs_global_param *param)
 /* Initialize all global variables. */
 static void *data_init()
 {
-	/* resp_common_data */
-	resp_common_data.code = -1;
-	memset(resp_common_data.message, 0, sizeof(resp_common_data.code));
-	memset(resp_common_data.comm_id, 0, sizeof(resp_common_data.comm_id));
+	/* g_data_storage_resp_common. */
+	g_data_storage_resp_common.code = -1;
+	memset(g_data_storage_resp_common.message, 0, sizeof(g_data_storage_resp_common.code));
+	memset(g_data_storage_resp_common.comm_id, 0, sizeof(g_data_storage_resp_common.comm_id));
+	
+	/* resp "alloc_port_normal" data. */
+	g_data_storage_resp_alloc_port_normal.rtp_port = 0;
+	g_data_storage_resp_alloc_port_normal.rtcp_port = 0;
+	memset(g_data_storage_resp_alloc_port_normal.port_id, 0, sizeof(g_data_storage_resp_alloc_port_normal.port_id));
+	memset(g_data_storage_resp_alloc_port_normal.comm_id, 0, sizeof(g_data_storage_resp_alloc_port_normal.comm_id));
+	memset(g_data_storage_resp_alloc_port_normal.fingerprint, 0, sizeof(g_data_storage_resp_alloc_port_normal.fingerprint));
 	
 	/* */
 	
@@ -302,51 +399,18 @@ static FUNC_RETURN cmd_send(const char *cmd)
 }
 
 /* Processing messages received from AVS.
- * 1. Parse JSON.
- * 2. Fill the data into a global variable.
- * 3. Wake up the thread which send the command.
+ * 1. Parse JSON and store into the global data area.
+ * 2. Wake up the thread which send the command.
  */
 static FUNC_RETURN msg_recv_process(char *msg)
 {
-	json_t *root;
-	json_error_t error;
-
     printf("recv msg: %s\n", msg);
-
-	root = json_loads(msg, 0, &error);
-
-	if (!root)
-	{
-		printf("json load error: on line %d: %s\n", error.line, error.text);
-		return R_FAIL;
-	}
 	
-	memset(recv_buffer, 0, RECV_BUFFER_SIZE);
+	general_json_dec(msg);
 	
-	switch (cmd_current_state)
-	{
-		case ST_AVS_IDLE:
-			/* do nothing. */
-			break;
-			
-		case ST_AVS_SET_GLOBAL_PARAM:
-			
-			if (dec_json_common_resp(root) != R_SUCCESS)
-			{
-				printf("decode json from AVS failed\n");
-				msg_parse_result = MSG_PARSE_RESULT_FAIL;
-			}
-
-			wakeup_intruder();
-
-			break;
-
-		default:
-			break;
-	}
+	memset(msg, 0, RECV_BUFFER_SIZE);
 	
-	cmd_current_state = ST_AVS_IDLE;
-	json_decref(root);
+	wakeup_intruder();
 	
 	return R_SUCCESS;
 }
@@ -454,6 +518,186 @@ static void *recv_task(void *data)
 	return NULL;
 }
 
+/* General function of encapsulating JSON data. */
+static const char *general_json_enc(void *param, CMD_TYPE_STATE cmd_type)
+{
+	const char *json_s = NULL;
+	
+	switch (cmd_type)
+	{
+		case ST_AVS_SET_GLOBAL_PARAM:
+			{
+				struct avs_global_param *p = (struct avs_global_param *)param;
+				json_s = enc_json_set_global_param(p);
+			}
+			break;
+
+		case ST_AVS_ALLOC_PORT_NORMAL:
+			{
+				struct avs_alloc_port_normal_param *p = (struct avs_alloc_port_normal_param *)param;
+				json_s = enc_json_alloc_port_normal(p);
+			}
+			break;
+			
+		default:
+			break;
+	}
+	
+	return json_s;
+}
+
+/* General function of decoding JSON data. */
+void *general_json_dec(char *msg)
+{
+	json_t *root;
+	json_error_t error;
+	json_t *id;
+	
+	root = json_loads(msg, 0, &error);
+
+	if (!root)
+	{
+		printf("json load error: on line %d: %s\n", error.line, error.text);
+		msg_parse_result = MSG_PARSE_RESULT_FAIL;
+		return NULL;
+	}
+	
+	if ((id = json_object_get(root, "id")))
+	{
+		if (!json_is_string(id))
+		{
+			printf("error: id is not a string\n");
+			msg_parse_result = MSG_PARSE_RESULT_FAIL;
+			return NULL;
+		}
+		printf("resp id: %s\n", json_string_value(id));
+	}
+	else
+	{
+		printf("Maybe, It's a notification from AVS.....!");
+		msg_parse_result = MSG_PARSE_RESULT_FAIL;
+		return NULL;	
+	}
+	
+	switch (cmd_current_state)
+	{
+		case ST_AVS_IDLE:
+			/* do nothing. */
+			break;
+			
+		case ST_AVS_SET_GLOBAL_PARAM:
+			if (dec_json_common_resp(root, &g_data_storage_resp_common) != R_SUCCESS)
+			{
+				printf("decode json from AVS failed (\"common\" resp).\n");
+				msg_parse_result = MSG_PARSE_RESULT_FAIL;
+			}
+			strncpy(g_data_storage_resp_common.comm_id, json_string_value(id), sizeof(g_data_storage_resp_common.comm_id) - 1);
+			break;
+			
+		case ST_AVS_ALLOC_PORT_NORMAL:
+			if (dec_json_alloc_port_normal_resp(root, &g_data_storage_resp_alloc_port_normal) != R_SUCCESS)
+			{
+				printf("decode json from AVS failed (\"alloc_port_normal\").\n");
+				msg_parse_result = MSG_PARSE_RESULT_FAIL;
+			}
+			strncpy(g_data_storage_resp_alloc_port_normal.comm_id, json_string_value(id), sizeof(g_data_storage_resp_alloc_port_normal.comm_id) - 1);
+			break;
+			
+		default:
+			break;
+	}
+	
+	json_decref(root);
+	
+	return NULL;
+}
+
+/* General function of backfilling response data to the caller */
+static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type)
+{
+	switch (cmd_type)
+	{
+		case ST_AVS_SET_GLOBAL_PARAM:
+			{
+				struct avs_common_resp_info *r = (struct avs_common_resp_info *)resp;
+				fill_common_resp(r);	/* Fill the message returned from the AVS to the command requester. */
+			}
+			break;
+		
+		case ST_AVS_ALLOC_PORT_NORMAL:
+			{
+				struct avs_alloc_port_normal_resp_info *r = (struct avs_alloc_port_normal_resp_info *)resp;
+				fill_alloc_port_normal_resp(r);	/* Fill the message returned from the AVS to the command requester. */
+			}
+			break;
+		default:
+			break;
+	}
+	
+	return NULL;
+}
+
+/* General processing function of command request.
+ * 1. Encapsulate JSON.
+ * 2. Send JSON to AVS.
+ * 3. Set the current context of command request.
+ * 4. Wait for response from AVS(Conditional variable).
+ * 5. Backfill response data to the caller.
+ */
+static FUNC_RETURN general_action(void *param, void *resp, CMD_TYPE_STATE cmd_type)
+{
+	const char *json_s = NULL;
+	FUNC_RETURN ret = R_SUCCESS;
+	
+	pthread_mutex_lock(&p_mutex);
+	
+	if (!(json_s = general_json_enc(param, cmd_type)))
+	{
+		pthread_mutex_unlock(&p_mutex);
+		return ERROR;
+	}
+	
+	/* Send JSON message to AVS. */
+	if (cmd_send(json_s) != R_SUCCESS)
+	{
+		pthread_mutex_unlock(&p_mutex);
+		free((void *)json_s);
+		return ERROR;
+	}
+	
+	/* "json_s" is pointed to memory which allocated by the JSON Library, then is no longer useful, so we can free it. */
+	free((void *)json_s);
+	
+	/* Set current context of command. */
+	cmd_current_state = cmd_type;
+	
+	/* waiting here... */
+	ret = wait_for_avs();
+	
+	if (R_SUCCESS != ret)
+	{
+		printf("send command to AVS failed.\n");
+		pthread_mutex_unlock(&p_mutex);
+		return ERROR;	
+	}
+	
+	/* If parse the JSON format error, return ERROR.  */
+	if (MSG_PARSE_RESULT_FAIL == msg_parse_result)
+	{
+		pthread_mutex_unlock(&p_mutex);
+		return ERROR;
+	}
+	
+	/* Backfill response data to the caller. */
+	general_fill_resp(resp, cmd_type);
+	
+	cmd_current_state = ST_AVS_IDLE;
+	
+	pthread_mutex_unlock(&p_mutex);
+	
+	return SUCCESS;
+}
+
 AVS_CMD_RESULT avs_playsound(struct avs_playsound_chan_param *param, struct avs_common_resp_info *resp)
 {
 	return SUCCESS;
@@ -486,7 +730,7 @@ AVS_CMD_RESULT avs_set_peerport_param_ice(struct avs_set_peerport_ice_param *par
 
 AVS_CMD_RESULT avs_alloc_port_normal(struct avs_alloc_port_normal_param *param, struct avs_alloc_port_normal_resp_info *resp)
 {
-	return SUCCESS;
+	return general_action(param, resp, ST_AVS_ALLOC_PORT_NORMAL);
 }
 
 AVS_CMD_RESULT avs_alloc_port_ice(struct avs_alloc_port_ice_param *param, struct avs_alloc_port_ice_resp_info *resp)
@@ -501,57 +745,7 @@ AVS_CMD_RESULT avs_dealloc_port(struct avs_dealloc_port_param *param, struct avs
 
 AVS_CMD_RESULT avs_set_global_param(struct avs_global_param *param, struct avs_common_resp_info *resp)
 {
-	const char *json_s = NULL;
-	FUNC_RETURN ret = R_SUCCESS;
-	
-	pthread_mutex_lock(&p_mutex);
-
-	/* Converting parameters to JSON format. */
-	json_s = enc_json_set_global_param(param);
-	
-	if (!json_s)
-	{
-		pthread_mutex_unlock(&p_mutex);
-		return ERROR;
-	}
-		
-	/* Send JSON message to AVS. */
-	if (cmd_send(json_s) != R_SUCCESS)
-	{
-		pthread_mutex_unlock(&p_mutex);
-		free((void *)json_s);
-		return ERROR;
-	}
-	
-	/* "json_s" is pointed to memory which allocated by the JSON Library, then is no longer useful, so we can free it. */
-	free((void *)json_s);
-	
-	/* Set current context of command. */
-	cmd_current_state = ST_AVS_SET_GLOBAL_PARAM;
-	
-	/* waiting here... */
-	ret = wait_for_avs();
-	
-	if (ret != R_SUCCESS)
-	{
-		printf("send command to AVS failed.\n");
-		pthread_mutex_unlock(&p_mutex);
-		return ERROR;	
-	}
-	
-	/* If parse the JSON format error, return ERROR.  */
-	if (MSG_PARSE_RESULT_FAIL == msg_parse_result)
-	{
-		pthread_mutex_unlock(&p_mutex);
-		return ERROR;
-	}
-	
-	/* Fill the message returned from the AVS to the command requester. */
-	fill_common_resp(resp);
-	
-	pthread_mutex_unlock(&p_mutex);
-	
-	return SUCCESS;
+	return general_action(param, resp, ST_AVS_SET_GLOBAL_PARAM);
 }
 
 AVS_CMD_RESULT avs_create_conn(void)
@@ -599,6 +793,7 @@ void avs_shutdown(void)
 /* main - Just for testing APIs..*/
 int main(void)
 {
+#if 0	/* set global param. */
 	struct avs_global_param param;
 	struct avs_common_resp_info resp;
 
@@ -614,6 +809,7 @@ int main(void)
 	param.turn_port = 6333;
 	strcpy(param.turn_username, "zhoulei");
 	strcpy(param.turn_password, "123456789");
+	strcpy(param.comm_id, "1111111111");
 
 	if (avs_set_global_param(&param, &resp) == SUCCESS)
 	{
@@ -623,6 +819,34 @@ int main(void)
 	{
 		printf("Fuck!\n");
 	}
+#endif
+
+#if 1	/* alloc port. */
+	struct avs_alloc_port_normal_param param;
+	struct avs_alloc_port_normal_resp_info resp;
+	char buf[100];
+	resp.resp = (struct avs_response_common_sub_info *)buf;
+	
+	if (avs_create_conn() != SUCCESS) 
+	{
+		printf("Connect to AVS failed\n");
+		return -1;
+	}
+	
+	strcpy(param.conf_id, "85883");
+	strcpy(param.chan_id, "00001");
+	param.enable_dtls = 0;
+	strcpy(param.comm_id, "2222222222");
+	
+	if (avs_alloc_port_normal(&param, &resp) == SUCCESS)
+	{
+		printf("Good Job! resp->code is %d, message is %s, rtp_port is %d, rtcp_port is %d\n", resp.resp->code, resp.resp->message, resp.rtp_port, resp.rtcp_port);
+	}
+	else
+	{
+		printf("Fuck!\n");
+	}
+#endif
 		
 	for (;;)
 	{

@@ -130,6 +130,18 @@ typedef enum avs_cmd_result
 } AVS_CMD_RESULT;
 
 /**
+ * struct avs_response_common_sub_info. The common response info used by structure "avs_alloc_port_normal_resp_info"¡¢"avs_alloc_port_ice_resp_info".
+ *
+ * @code:  0:sucess, -1:error.
+ * @message:  A simple description of the error return code.
+ */
+struct avs_response_common_sub_info
+{
+	unsigned int code;
+	char message[MAX_MESSAGE_REPONSE];
+};
+
+/**
  * struct avs_common_resp_info - General type of AVS return value. This is used when AVS does not return any valuable informations, but just SUCCESS or FAIL.
  *
  * @code:  0:sucess, -1:error.
@@ -168,7 +180,7 @@ struct avs_global_param
 /**
  * struct avs_alloc_port_normal_param - The parameters set to AVS for allocating port resources with normal mode(no ICE).
  *
- * @enable_dtls:  Whether to turn on DTLS.
+ * @enable_dtls:  Whether to turn on DTLS. 0: disable, 1: enable.
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
  * @comm_id:  Unique ID of a command to AVS.
@@ -214,7 +226,7 @@ struct avs_alloc_port_normal_resp_info
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char port_id[MAX_PORTID_LEN];
 	char comm_id[MAX_UNIQUE_ID];
-	struct avs_response_common_info *resp;
+	struct avs_response_common_sub_info *resp;
 };
 
 /**
@@ -234,7 +246,7 @@ struct avs_alloc_port_ice_resp_info
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char port_id[MAX_PORTID_LEN];
 	char comm_id[MAX_UNIQUE_ID];
-	struct avs_response_common_info *resp;
+	struct avs_response_common_sub_info *resp;
 };
 
 /**
