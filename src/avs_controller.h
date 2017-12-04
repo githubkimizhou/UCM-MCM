@@ -33,9 +33,10 @@
 #define MAX_TURN_USERNAME_LEN 	20
 #define MAX_TURN_PASSWORD_LEN	20
 #define MAX_SOUNDFILE_LEN 	1024	/* absolute path */
-#define MAX_CONFID_LEN 		20
-#define MAX_CHANID_LEN 		20
+#define MAX_CONFID_LEN 		128
+#define MAX_CHANID_LEN 		256
 #define MAX_PORTID_LEN		20
+#define MAX_CANDIDATE_STR_LEN		200	/* one candidate length. */
 #define MAX_UNIQUE_ID		20
 #define MAX_MESSAGE_REPONSE	50
 #define MAX_FINGERPRINT_LEN	70	/* e.g: sha-512 4A:AD:B9:B1:3F:82:18:3B:54:02:12:DF:3E:5D:49:6B:19:E5:7C:AB */
@@ -47,7 +48,7 @@
 /**
  * enum avs_audio_codec - Audio codecs.
  */
-enum avs_audio_codec 
+enum avs_audio_codec
 {
 	AVS_AUDIO_CODEC_PCMU,
 	AVS_AUDIO_CODEC_PCMA,
@@ -59,7 +60,7 @@ enum avs_audio_codec
 	AVS_AUDIO_CODEC_G729,
 	AVS_AUDIO_CODEC_G723_1,
 	AVS_AUDIO_CODEC_G726,
-	AVS_AUDIO_CODEC_ADPCM32
+	AVS_AUDIO_CODEC_OPUS
 };
 
 /**
@@ -196,7 +197,7 @@ struct avs_alloc_port_normal_param
 /**
  * struct avs_alloc_port_ice_param - The parameters set to AVS for allocating port resources with ICE mode.
  *
- * @enable_dtls:  Whether to turn on DTLS.
+ * @enable_dtls:  Whether to turn on DTLS. It must be enabled in ICE mode.
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
  * @comm_id:  Unique ID of a command to AVS.
@@ -229,6 +230,12 @@ struct avs_alloc_port_normal_resp_info
 	struct avs_response_common_sub_info resp;
 };
 
+/* Candidates. */
+struct candidate {
+	char cands_str[MAX_CANDIDATE_STR_LEN];
+	struct candidate *next;
+};
+
 /**
  * struct avs_alloc_port_ice_resp_info - The response values from AVS according to avs_addport_ice() command.
  * 
@@ -237,6 +244,7 @@ struct avs_alloc_port_normal_resp_info
  * @fingerprint:  fingerprint.
  * @port_id:  Unique ID for a port resource.
  * @comm_id:  Unique ID of a commander to AVS.
+ * @candidates: List of candidates.
  * @resp:  Response informations from AVS. 
  */
 struct avs_alloc_port_ice_resp_info 
@@ -246,6 +254,7 @@ struct avs_alloc_port_ice_resp_info
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char port_id[MAX_PORTID_LEN];
 	char comm_id[MAX_UNIQUE_ID];
+	struct candidate *candidates;
 	struct avs_response_common_sub_info resp;
 };
 
@@ -287,6 +296,7 @@ struct avs_set_peerport_normal_param
 	unsigned int symrtp:1;
 	unsigned int srtpmode;
 	unsigned int qos;
+	char fingerprint[MAX_FINGERPRINT_LEN];
 	char srtpsendkey[MAX_SRTP_KEY_LEN];
 	char srtprecvkey[MAX_SRTP_KEY_LEN];
 	char targetaddr[MAX_IPPORTADDR_LEN];
@@ -316,7 +326,7 @@ struct avs_set_peerport_ice_param
 	char fingerprint[MAX_FINGERPRINT_LEN];
 	char ice_ufrag[MAX_ICE_UFRAG];
 	char ice_pwd[MAX_ICE_PASSWROD];
-	char candidate[MAX_IPPORTADDR_LEN];
+	char candidate[500];
 	char conf_id[MAX_CONFID_LEN];
 	char chan_id[MAX_CHANID_LEN];
 	char port_id[MAX_PORTID_LEN];
@@ -329,6 +339,7 @@ struct avs_set_peerport_ice_param
  * @a_codec:  Audio encoder\decoder type.
  * @audio_payloadtype:  Audio payloadtype.
  * @audio_transmode:  1: sendrecv, 2: sendonly, 3: recvonly.
+ * @ptime: packeting time.
  * @conf_id:  Conference id.
  * @chan_id:  Channel id.
  * @port_id:  Unique ID for a port resource.
@@ -339,6 +350,7 @@ struct avs_codec_audio_param
 	enum avs_audio_codec a_codec;
 	unsigned int audio_payloadtype;
 	unsigned int audio_transmode;
+	unsigned int ptime;
 	char conf_id[MAX_CONFID_LEN];
 	char chan_id[MAX_CHANID_LEN];
 	char port_id[MAX_PORTID_LEN];
