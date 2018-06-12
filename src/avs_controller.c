@@ -1027,7 +1027,7 @@ void *general_json_dec(char *msg)
 	
 	return NULL;
 }
-
+//merge testing.
 /* General function of backfilling response data to the caller */
 static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type)
 {
