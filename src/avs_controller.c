@@ -1092,6 +1092,8 @@ static FUNC_RETURN general_action(void *param, void *resp, CMD_TYPE_STATE cmd_ty
 		return ERROR;
 	}
 	
+	int a = 0;
+	
 	/* Send JSON message to AVS. */
 	if (cmd_send(json_s) != R_SUCCESS)
 	{
