@@ -1062,7 +1062,7 @@ static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type)
 	
 	return NULL;
 }
-
+//hzdev-----testing
 /* General processing function of command request.
  * 1. Encapsulate JSON.
  * 2. Send JSON to AVS.
