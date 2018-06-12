@@ -265,7 +265,7 @@ struct avs_alloc_port_ice_resp_info
  * @chan_id:  Channel id.
  * @port_id:  Unique ID for a port resource.
  * @comm_id:  Unique ID of a commander to AVS.
- */
+ ***********************/
 struct avs_dealloc_port_param 
 {
 	char conf_id[MAX_CONFID_LEN];
