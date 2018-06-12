@@ -1062,6 +1062,7 @@ static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type)
 	}
 	
 	int c = 0;
+	char ccc = NULL;
 	
 	return NULL;
 }
