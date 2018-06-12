@@ -1060,6 +1060,8 @@ static void *general_fill_resp(void *resp, CMD_TYPE_STATE cmd_type)
 			break;
 	}
 	
+	char ccc = NULL;
+	
 	return NULL;
 }
 //hzdev-----testing
